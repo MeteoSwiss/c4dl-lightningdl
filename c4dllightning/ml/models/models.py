@@ -423,18 +423,6 @@ def init_model(batch_gen, model_func=rnn_model, compile=True,
     return (model, strategy)
 
 
-def combined_model(models, output_names):
-    past_in = Input(shape=models[0].input_shape[1:],
-        name="past_in")
-    outputs = [
-        Layer(name=name)(model(past_in))
-        for (model, name) in zip(models, output_names)
-    ]
-    comb_model = Model(inputs=[past_in], outputs=outputs)
-
-    return comb_model
-
-
 def train_model(model, strategy, batch_gen,
     weight_fn="model.h5", monitor="val_loss"):
 

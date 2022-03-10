@@ -26,10 +26,10 @@ def calibration_curve(model, batch_gen, dataset='valid', nbins=100):
     return (p, occurrence_rate)
 
 
-def calibration_curve_models(model, batch_gen, weight_files, out_dir):
+def calibration_curve_models(model, batch_gen, weight_files, out_dir, dataset='valid'):
     for fn in weight_files:
         model.load_weights(fn)
-        (p, occurrence_rate) = calibration_curve(model, batch_gen)
+        (p, occurrence_rate) = calibration_curve(model, batch_gen, dataset=dataset)
         fn_root = fn.split("/")[-1].split(".")[0]
         np.save(
             os.path.join(out_dir, "calibration-{}.npy".format(fn_root)), 

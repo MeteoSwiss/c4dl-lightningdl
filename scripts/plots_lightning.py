@@ -1,4 +1,6 @@
+from itertools import product
 import os
+import string
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -19,7 +21,8 @@ color_fl2 = "#0072B2"
 color_fl1 = "#56B4E9"
 color_ce = "#009E73"
 color_iou = "#E69F00"
-color_per = "#999999"
+color_per = "#009E73"
+color_lag = "#E69F00"
 loss_colors_linestyles = {
     "BFL2": (color_fl2, "-"),
     "BFL1": (color_fl1, "-"),
@@ -91,22 +94,24 @@ def metric_curves_by_loss(**kwargs):
         loss_colors_linestyles, **kwargs)
 
 
-
 def leadtime_metrics(metrics=("CSI", "PSS"), out_file=None, dataset='test'):
     conf_matrix_files = {
         "FL2": "conf_matrix_leadtime-ensemble_dropout_weightdecay_noclassweight.npy",
-        "PER": "conf_matrix_leadtime-lighting_persistence.npy"
+        "LAG": "conf_matrix_leadtime-lightning_lagrangian.npy",
+        "PER": "conf_matrix_leadtime-lightning_persistence.npy"
     }
     names = {
         "FL2": "Model",
-        "PER": "Pers."
+        "LAG": "Lagrangian Pers.",
+        "PER": "Eulerian Pers."
     }
     colors_linestyles = {
         ("FL2"): (color_fl2, "-"),
-        ("PER"): (color_per, "-"),
+        ("LAG"): (color_lag, "--"),
+        ("PER"): (color_per, "-.")
     }
     conf_matrix_lt = {
-        k: np.load(os.path.join("../results", dataset, fn))
+        k: np.load(os.path.join("../results/", dataset, fn))
         for (k,fn) in conf_matrix_files.items()
     }
 
@@ -143,13 +148,14 @@ def metric_curves_dropout_ensemble(**kwargs):
     metric_curves(ensemble_conf_matrix_files, ensemble_names,
         ensemble_colors_linestyles, **kwargs)
 
+
 def metric_curves(
     conf_matrix_files, names, colors_linestyles,
     metrics=("CSI", "PSS"), out_file=None,
     dataset="valid"
 ):
     conf_matrix = {
-        k: np.load(os.path.join("../results", dataset, fn))
+        k: np.load(os.path.join("../results/", dataset, fn))
         for (k,fn) in conf_matrix_files.items()
     }
     thresholds = np.arange(0, 1.0001, 0.001)
@@ -164,29 +170,68 @@ def metric_curves(
         )
         if i==0:
             ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.03), ncol=4)
+        ax.text(
+            0.01, 0.975,
+            f"({string.ascii_lowercase[i]})",
+            horizontalalignment='left', verticalalignment='top',
+            transform=ax.transAxes
+        )
 
     if out_file is not None:
         fig.savefig(out_file, bbox_inches='tight')
         plt.close(fig)
 
 
-def plot_examples(batch_gen, model, batch_number=13,
-    batch_member=30, out_file=None):
+def plot_examples(
+    batch_gen, model, batch_number=13,
+    batch_member=30, out_file=None, 
+    shown_inputs=("RZC", "occurrence-8-10", "HRV", "ctth-alti"),
+    plot_kwargs=None
+):
+    if plot_kwargs is None:
+        plot_kwargs = {}
+
+    names = batch_gen.pred_names_past
+    shown_inputs = [names.index(ip) for ip in shown_inputs]
+
     (X,Y) = batch_gen.batch(batch_number, dataset='test')
     fig = plots.plot_model_examples(X, Y, ["obs", model],
-        batch_member=batch_member)
+        batch_member=batch_member, shown_inputs=shown_inputs,
+        **plot_kwargs)
 
     if out_file is not None:
         fig.savefig(out_file, bbox_inches='tight', dpi=200)
         plt.close(fig)
 
 
-def plot_all_examples(batch_gen, model):
+def plot_all_examples(batch_gen, model,
+    shown_inputs=("RZC", "occurrence-8-10", "HRV", "ctth-alti")
+):
     samples = ((12, 28), (5, 37), (37, 30))
     for (i,(bn, bm)) in enumerate(samples):
         plot_examples(batch_gen, model,
             batch_number=bn, batch_member=bm, 
+            shown_inputs=shown_inputs,
             out_file=f"../figures/model-example-{i}.pdf")
+
+
+def plot_random_examples(batch_gen, model,
+    shown_inputs=("RZC", "occurrence-8-10", "HRV", "ctth-alti"),
+    random_seed=1234, num_samples=32
+):
+    num_batches = len(batch_gen.time_coords['test']) // \
+        batch_gen.batch_size
+    batch_size = batch_gen.batch_size
+    rnd = np.random.RandomState(seed=random_seed)
+    all_samples = list(product(range(num_batches), range(batch_size)))
+    ind = rnd.choice(len(all_samples), num_samples, replace=False)
+    samples = [all_samples[i] for i in ind]
+
+    for (i,(bn, bm)) in enumerate(samples):
+        plot_examples(batch_gen, model,
+            batch_number=bn, batch_member=bm, 
+            shown_inputs=shown_inputs,
+            out_file=f"../figures/random-example/random-example-{i:02d}.pdf")
 
 
 def model_metrics_table(
@@ -196,7 +241,8 @@ def model_metrics_table(
     lines = []
     model_names = {
         "FL2": "FL $\gamma=2$ ensemble",
-        "PER": "Persistence"
+        "LAG": "Lagrangian pers.",
+        "PER": "Eulerian pers.",
     }
     def print_line(items, model=None):
         items = [
@@ -215,7 +261,8 @@ def model_metrics_table(
 
     conf_matrix_files = {
         "FL2": "conf_matrix-ensemble_dropout_weightdecay_noclassweight.npy",
-        "PER": "conf_matrix-lighting_persistence.npy"
+        "LAG": "conf_matrix-lightning_lagrangian.npy",
+        "PER": "conf_matrix-lightning_persistence.npy"
     }
     conf_matrix_test = {
         m: np.load(os.path.join("../results/test", fn))
@@ -235,13 +282,13 @@ def model_metrics_table(
                 metric_func = plots.metric_funcs[threshold_metric]
                 score = metric_func(conf_matrix_valid[model])
                 thresh_index[model] = score.argmax()
-                if model == "PER":
+                if model in ("LAG", "PER"):
                     scores.append("---")
                 else:
                     scores.append(thresholds[thresh_index[model]])
                     
             elif metric.endswith("AUC"):
-                if model == "PER":
+                if model in ("LAG", "PER"):
                     scores.append("---")
                 else:
                     score = plots.metric_funcs[metric](cm)

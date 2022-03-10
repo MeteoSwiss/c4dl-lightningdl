@@ -5,7 +5,10 @@ import os
 import numpy as np
 from scipy.integrate import trapezoid
 
-from ..features import batch
+try:
+    from ..features import batch
+except (ImportError, ModuleNotFoundError):
+    pass
 
 
 def confusion_matrix(model, batch_gen, dataset='valid', thresholds=[0.5]):
@@ -37,11 +40,12 @@ def confusion_matrix(model, batch_gen, dataset='valid', thresholds=[0.5]):
     return np.array(((tp, fn), (fp, tn))) / N
 
 
-def conf_matrix_models(model, batch_gen, weight_files, out_dir):
+def conf_matrix_models(model, batch_gen, weight_files, out_dir, dataset='valid'):
     thresholds = np.arange(0, 1.0001, 0.001)
     for fn in weight_files:
         model.load_weights(fn)
-        conf_matrix = confusion_matrix(model, batch_gen, thresholds=thresholds)
+        conf_matrix = confusion_matrix(model, batch_gen,
+            thresholds=thresholds, dataset=dataset)
         fn_root = fn.split("/")[-1].split(".")[0]
         np.save(
             os.path.join(out_dir, "conf_matrix-{}.npy".format(fn_root)), 

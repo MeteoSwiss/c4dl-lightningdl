@@ -181,6 +181,13 @@ def plot_metric_leadtime(conf_matrix_lt, names, metrics=("CSI", "PSS"),
             ax.plot(leadtime, score, label=names[model],
                 color=c, linestyle=ls)
 
+        ax.text(
+            0.01, 0.975,
+            f"({string.ascii_lowercase[i]})",
+            horizontalalignment='left', verticalalignment='top',
+            transform=ax.transAxes
+        )
+
         ax.set_xlim((0, leadtime[-1]))
         ylim = ax.get_ylim()
         ax.set_ylim((0, ylim[1]))
@@ -204,13 +211,21 @@ def plot_frame(ax, frame, norm=None):
 def plot_model_examples(X, Y, models, shown_inputs=(0,25,12,9),
     input_timesteps=(-4,-1), output_timesteps=(0,2,5,11),
     batch_member=0, interval_mins=5,
-    input_names=("Rain rate", "Lightning", "HRV", "CTH")
+    input_names=("Rain rate", "Lightning", "HRV", "CTH"),
+    min_p=0.025
 ):
     num_timesteps = len(input_timesteps)+len(output_timesteps)
     gs_rows = 2 * max(len(models),len(shown_inputs))
     gs_cols = num_timesteps
-    gs = gridspec.GridSpec(gs_rows, gs_cols+4, wspace=0.02, hspace=0.05,
-        width_ratios=[0.1,0.19]+[1]*gs_cols+[0.19,0.1])
+    width_ratios = (
+        [0.1, 0.19] +
+        [1]*len(input_timesteps) +
+        [0.1] +
+        [1]*len(output_timesteps) +
+        [0.19, 0.1]
+    )
+    gs = gridspec.GridSpec(gs_rows, gs_cols+5, wspace=0.02, hspace=0.05,
+        width_ratios=width_ratios)
     batch = [x[batch_member:batch_member+1,...] for x in X]
     obs = [y[batch_member:batch_member+1,...] for y in Y]
 
@@ -257,8 +272,6 @@ def plot_model_examples(X, Y, models, shown_inputs=(0,25,12,9),
 
     # plot outputs
     row0 = gs_rows//2 - len(models)
-    #norm = colors.Normalize(0,1)
-    min_p = 0.025
     norm = colors.LogNorm(min_p,1,clip=True)
     for (i,model) in enumerate(models):
         if model == "obs":
@@ -268,7 +281,7 @@ def plot_model_examples(X, Y, models, shown_inputs=(0,25,12,9),
         row = row0 + 2*i
         op = Y_pred[0,output_timesteps,:,:,0]        
         for m in range(len(output_timesteps)):
-            col = m + len(input_timesteps) + 2
+            col = m + len(input_timesteps) + 3
             ax = fig.add_subplot(gs[row:row+2,col])
             im = plot_frame(ax, op[m,:,:], norm=norm)
             if i==0:
@@ -286,62 +299,3 @@ def plot_model_examples(X, Y, models, shown_inputs=(0,25,12,9),
             cax.set_title("$p$", fontsize=12)
 
     return fig
-
-
-def plot_study_area(radar_archive_path, dem_path):
-    from pyresample.geometry import AreaDefinition
-    import cartopy
-    from ..datasets import mchradar, swissdem
-    from .. import projection
-
-    dt = datetime(2020,6,1) # dummy, not really needed
-
-    area_def = AreaDefinition(**projection.ccs4_swiss_grid_area)
-    (lons, lats) = area_def.get_lonlats()
-    crs = area_def.to_cartopy_crs()
-    ae = area_def.area_extent
-    img_extent = [ae[0], ae[2], ae[1], ae[3]]
-    ax = plt.axes(projection=crs)
-
-    swissdem_reader = swissdem.SwissDEMReader(dem_file=dem_path)
-    dem = swissdem_reader.variable_for_time(dt, "Altitude")
-    dem[dem<2] = -1
-    color_x = np.hstack(((np.zeros(8)+0.1),np.linspace(0.25,1,192)))
-    dem_colors = plt.cm.terrain(color_x)
-    dem_colors[0,:] = plt.cm.terrain(0.1)
-    terrain_trunc = colors.ListedColormap(dem_colors)
-    norm = colors.Normalize(-dem.max()*(8/192), dem.max())
-    im = ax.imshow(dem, origin='upper', extent=img_extent, transform=crs,
-        cmap=terrain_trunc, norm=norm)
-    cb = plt.colorbar(im)
-    cb.ax.set_ylabel("Elevation [m]")
-
-    ax.add_feature(cartopy.feature.COASTLINE, linewidth=1.5)
-    ax.add_feature(cartopy.feature.BORDERS, linewidth=1.0)    
-    ax.set_global()    
-
-    radar_coords = np.array([
-        [8.512000, 47.284333],                
-        [6.099415, 46.425113],
-        [8.833217, 46.040791],
-        [7.486552, 46.370646],
-        [9.794458, 46.834974],
-    ])
-
-    ax.plot(
-        radar_coords[:,0], radar_coords[:,1], 
-        'o', markeredgecolor='tab:red',
-        markerfacecolor=(0,0,0,0), transform=cartopy.crs.PlateCarree()
-    )
-
-    mchradar_reader = mchradar.MCHRadarReader(
-        archive_path=radar_archive_path,
-        variables=["RZC"],
-        phys_values=False
-    )
-    data = mchradar_reader.variable_for_time(dt, "RZC")
-    mask = (data == 255).astype(np.float32)
-    img = np.zeros((mask.shape[0], mask.shape[1], 4))
-    img[:,:,3] = mask * 0.3
-    
-    ax.imshow(img, origin='upper', extent=img_extent, transform=crs)

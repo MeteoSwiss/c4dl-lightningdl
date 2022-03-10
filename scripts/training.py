@@ -9,8 +9,8 @@ from c4dllightning.features import batch, regions, transform
 from c4dllightning.ml.models import models
 
 
-def setup_batch_gen(file_dir, file_suffix="2020", primary="RZC", target="R10", batch_size=48,
-    epoch=datetime(1970,1,1)):
+def setup_batch_gen(file_dir, file_suffix="2020", primary="RZC",
+    target="occurrence-8-10", batch_size=48, epoch=datetime(1970,1,1)):
 
     files = os.listdir(file_dir)
     files = [

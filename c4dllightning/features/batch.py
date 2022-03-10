@@ -25,6 +25,7 @@ class BatchGenerator:
         self.batch_size = batch_size
         self.interval = interval
         self.timesteps = timesteps
+        self.primary_raw_var = primary_raw_var
         self.rng = np.random.RandomState(seed=random_seed)
         
         # mappings from source variables to predictors and targets
@@ -84,7 +85,7 @@ class BatchGenerator:
             set(chain(*[self.target_sources[v] for v in self.target_names]))
         sources_static = set(chain(*[self.pred_sources[v] for v in self.pred_names_static]))
         # select longest time dimension needed
-        if raw_name in sources_past:
+        if (raw_name in sources_past) or (raw_name == self.primary_raw_var):
             time_dim = self.timesteps[0]
         if raw_name in sources_future:
             time_dim = max(time_dim, self.timesteps[1])
