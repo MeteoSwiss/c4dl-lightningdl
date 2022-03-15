@@ -16,7 +16,7 @@ if you just want to run it.
 
 # Downloading data
 
-The dataset can be found at the following Zenodo repository: LINK TO BE ADDED
+The dataset can be found at the following Zenodo repository: https://doi.org/10.5281/zenodo.6325370
 
 Download the NetCDF file. You can place it in the `data` directory but elsewhere on the disk works too.
 
