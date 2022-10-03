@@ -1,4 +1,4 @@
-This repository contains the machine learning code used in the paper: Multi-source seamless lightning nowcasting with recurrent deep learning, to be submitted.
+This repository contains the machine learning code used in the paper: Multi-source seamless lightning nowcasting with recurrent deep learning, accepted to _Artificial Intelligence for the Earth Systems_. Preprint available: https://arxiv.org/abs/2203.10114
 
 # Installation
 
