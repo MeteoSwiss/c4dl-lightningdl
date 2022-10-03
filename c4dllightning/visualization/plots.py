@@ -3,6 +3,7 @@ import os
 import string
 
 from matplotlib import colors, gridspec, patches, pyplot as plt
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import numpy as np
 
 from ..analysis import evaluation
@@ -212,7 +213,8 @@ def plot_model_examples(X, Y, models, shown_inputs=(0,25,12,9),
     input_timesteps=(-4,-1), output_timesteps=(0,2,5,11),
     batch_member=0, interval_mins=5,
     input_names=("Rain rate", "Lightning", "HRV", "CTH"),
-    min_p=0.025
+    future_input_names=("CAPE-MU",),
+    min_p=0.025, plot_scale=256
 ):
     num_timesteps = len(input_timesteps)+len(output_timesteps)
     gs_rows = 2 * max(len(models),len(shown_inputs))
@@ -235,20 +237,26 @@ def plot_model_examples(X, Y, models, shown_inputs=(0,25,12,9),
     input_transforms = {
         "Rain rate": lambda x: 10**(x*0.528-0.051),
         "Lightning": lambda x: x,
+        "POH": lambda x: x,
         "HRV": lambda x: x*100,
-        "CTH": lambda x: x*2.810+5.260
+        "CTH": lambda x: x*2.810+5.260,
+        "CAPE-MU": lambda x: x*200
     }
     input_norm = {
         "Rain rate": colors.LogNorm(0.01, 100, clip=True),
         "Lightning": colors.Normalize(0, 1),
+        "POH": colors.Normalize(0, 1),
         "HRV": colors.Normalize(0,100),
-        "CTH": colors.Normalize(0,12)
+        "CTH": colors.Normalize(0,12),
+        "CAPE-MU": colors.Normalize(0,2000)
     }
     input_ticks = {
         "Rain rate": [0.1, 1, 10, 100],
         "Lightning": [0, 0.5, 1],
+        "POH": [0, 0.5, 1],
         "HRV": [0, 25, 50, 75],
-        "CTH": [0, 5, 10]
+        "CTH": [0, 5, 10],
+        "CAPE-MU": [500, 1000, 1500, 2000],
     }
     row0 = gs_rows//2 - len(shown_inputs)
     for (i,k) in enumerate(shown_inputs):
@@ -271,13 +279,26 @@ def plot_model_examples(X, Y, models, shown_inputs=(0,25,12,9),
                 cax.yaxis.set_ticks_position('left')
 
     # plot outputs
-    row0 = gs_rows//2 - len(models)
-    norm = colors.LogNorm(min_p,1,clip=True)
+    row0 = 0
+    future_input_ind = 0
+    norm_log = colors.LogNorm(min_p,1,clip=True)
     for (i,model) in enumerate(models):
         if model == "obs":
             Y_pred = obs[0]
+            norm = norm_log
+            label = "Observed"
+        elif isinstance(model, str) and model.startswith("input-future"):
+            var_ind = int(model.split("-")[-1])
+            Y_pred = batch[var_ind]
+            input_name = future_input_names[future_input_ind]
+            Y_pred = input_transforms[input_name](Y_pred)
+            norm = input_norm[input_name]
+            future_input_ind += 1
+            label = input_name
         else:
             Y_pred = model.predict(batch)
+            norm = norm_log
+            label = "Forecast"
         row = row0 + 2*i
         op = Y_pred[0,output_timesteps,:,:,0]        
         for m in range(len(output_timesteps)):
@@ -289,13 +310,32 @@ def plot_model_examples(X, Y, models, shown_inputs=(0,25,12,9),
                 ax.set_title(f"$+{iv}\\,\\mathrm{{min}}$")
             if m == len(output_timesteps)-1:
                 ax.yaxis.set_label_position("right")
-                label = "Observed" if (model=="obs") else "Forecast"
                 ax.set_ylabel(label)
-        if i==0:
-            cax = fig.add_subplot(gs[row0:gs_rows-row0,-1])            
+                if i == len(models)-1:
+                    scalebar = AnchoredSizeBar(ax.transData,
+                           op.shape[1],
+                           f'{plot_scale} km',
+                           'lower center', 
+                           pad=0.1,
+                           color='black',
+                           frameon=False,
+                           size_vertical=1,
+                           bbox_transform=ax.transAxes,
+                           bbox_to_anchor=(0.5,-0.27)
+                    )
+                    ax.add_artist(scalebar)
+
+        if i==len(models)-1:
+            r0 = row0 + 2*len(future_input_names)
+            r1 = r0 + 4
+            cax = fig.add_subplot(gs[r0:r1,-1])            
             cb = plt.colorbar(im, cax=cax)
             cb.set_ticks([min_p, 0.05, 0.1, 0.2, 0.5, 1])
             cb.set_ticklabels([min_p, 0.05, 0.1, 0.2, 0.5, 1])
-            cax.set_title("$p$", fontsize=12)
+            cax.set_xlabel("$p$", fontsize=12)
+        elif i<len(future_input_names):
+            cax = fig.add_subplot(gs[row:row+2,-1])            
+            cb = plt.colorbar(im, cax=cax)
+            cb.set_ticks(input_ticks[input_name])
 
     return fig

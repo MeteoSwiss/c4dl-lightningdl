@@ -11,7 +11,7 @@ setuptools.setup(
     description="COALITION 4 deep learning lightning prediction code package",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/meteoswiss-mdr/coalition-4-dl",
+    url="https://github.com/MeteoSwiss/c4dl-lightningdl",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

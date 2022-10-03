@@ -186,17 +186,23 @@ def plot_examples(
     batch_gen, model, batch_number=13,
     batch_member=30, out_file=None, 
     shown_inputs=("RZC", "occurrence-8-10", "HRV", "ctth-alti"),
+    input_names=("Rain rate", "Lightning", "HRV", "CTH"),
+    shown_future_inputs=("CAPE-MU-future",),
+    future_input_names=("CAPE-MU",),
     plot_kwargs=None
 ):
     if plot_kwargs is None:
         plot_kwargs = {}
 
-    names = batch_gen.pred_names_past
+    names = batch_gen.pred_names_past + batch_gen.pred_names_future
     shown_inputs = [names.index(ip) for ip in shown_inputs]
+    shown_future_inputs = [names.index(ip) for ip in shown_future_inputs]
+    future_input_codes = [f"input-future-{ip}" for ip in shown_future_inputs]
 
     (X,Y) = batch_gen.batch(batch_number, dataset='test')
-    fig = plots.plot_model_examples(X, Y, ["obs", model],
-        batch_member=batch_member, shown_inputs=shown_inputs,
+    fig = plots.plot_model_examples(X, Y, future_input_codes+["obs", model],
+        batch_member=batch_member, shown_inputs=shown_inputs,        
+        input_names=input_names, future_input_names=future_input_names,
         **plot_kwargs)
 
     if out_file is not None:
@@ -205,13 +211,19 @@ def plot_examples(
 
 
 def plot_all_examples(batch_gen, model,
-    shown_inputs=("RZC", "occurrence-8-10", "HRV", "ctth-alti")
+    shown_inputs=("RZC", "occurrence-8-10", "HRV", "ctth-alti"),
+    input_names=("Rain rate", "Lightning", "HRV", "CTH"),
+    shown_future_inputs=("CAPE-MU-future",),
+    future_input_names=("CAPE-MU",),
+    plot_kwargs=None
 ):
     samples = ((12, 28), (5, 37), (37, 30))
     for (i,(bn, bm)) in enumerate(samples):
         plot_examples(batch_gen, model,
             batch_number=bn, batch_member=bm, 
             shown_inputs=shown_inputs,
+            input_names=input_names,
+            plot_kwargs=plot_kwargs,
             out_file=f"../figures/model-example-{i}.pdf")
 
 
