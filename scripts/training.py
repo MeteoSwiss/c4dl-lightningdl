@@ -325,14 +325,6 @@ def setup_batch_gen(file_dir, file_suffix="2020", primary="RZC",
             "source_vars": ["sun-z"],
             "transform": transform.normalize(std=127.0)
         },
-        "R10-target": {
-            "source_vars": ["CPCH"],
-            "transform": transform.R_threshold(raw["CPCH"]["scale"], 10.0)
-        },
-        "R10": {
-            "source_vars": ["CPCH"],
-            "transform": transform.R_threshold(raw["CPCH"]["scale"], 10.0)
-        }
     }
 
     # predictors
@@ -353,8 +345,7 @@ def setup_batch_gen(file_dir, file_suffix="2020", primary="RZC",
         "Altitude", "EW-deriv", "NS-deriv",
         "sun-z"
     ]
-    if not ("CPCH" in transforms[target]["source_vars"]):
-        pred_names.append(target)
+    pred_names.append(target)
 
     predictors = {
         var_name: transforms[var_name]
